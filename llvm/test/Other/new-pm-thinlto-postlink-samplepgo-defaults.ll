@@ -29,7 +29,8 @@
 ; CHECK-NOEXT: {{^}}
 
 ; CHECK-EP-PIPELINE-START: Running pass: NoOpModulePass
-; CHECK-O: Running pass: SampleProfileLoaderPass
+; CHECK-O: Running pass: UnpredictableProfileLoaderPass
+; CHECK-O-NEXT: Running pass: SampleProfileLoaderPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
