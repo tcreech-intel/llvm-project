@@ -77,6 +77,7 @@
 #include "llvm/Transforms/Instrumentation/PGOForceFunctionAttrs.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
+#include "llvm/Transforms/Scalar/AggressiveSpeculation.h"
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
 #include "llvm/Transforms/Scalar/AnnotationRemarks.h"
 #include "llvm/Transforms/Scalar/BDCE.h"
@@ -1069,6 +1070,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(createModuleToFunctionPassAdaptor(
         std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
   }
+
+  // This may be able to merge call sites, so run before any inlining which
+  // may happen in SampleProfileLoader.
+  MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));
 
   if (LoadSampleProfile) {
     // Annotate sample profile right after early FPM to ensure freshness of
