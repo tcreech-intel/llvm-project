@@ -42,6 +42,7 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
+; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass
 ; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass
 ; CHECK-O-NEXT: Running pass: SampleProfileLoaderPass
 ; CHECK-O-NEXT: Running analysis: ProfileSummaryAnalysis

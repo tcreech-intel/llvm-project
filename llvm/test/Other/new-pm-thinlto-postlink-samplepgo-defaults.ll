@@ -29,6 +29,7 @@
 ; CHECK-NOEXT: {{^}}
 
 ; CHECK-EP-PIPELINE-START: Running pass: NoOpModulePass
+; CHECK-O: Running pass: UnpredictableProfileLoaderPass
 ; CHECK-O: Running pass: AggressiveSpeculationPass
 ; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis

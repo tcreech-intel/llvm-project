@@ -67,6 +67,7 @@
 #include "llvm/Transforms/IPO/SampleProfile.h"
 #include "llvm/Transforms/IPO/SampleProfileProbe.h"
 #include "llvm/Transforms/IPO/SyntheticCountsPropagation.h"
+#include "llvm/Transforms/IPO/UnpredictableProfileLoader.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation/CGProfile.h"
@@ -1071,6 +1072,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
         std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
   }
 
+  if (LoadSampleProfile) {
+    // Add !unpredictable metadata based on branch mispredict profiles.
+    MPM.addPass(UnpredictableProfileLoaderPass(PGOOpt->ProfileFile));
+  }
   // This may be able to merge call sites, so run before any inlining which
   // may happen in SampleProfileLoader.
   MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));
