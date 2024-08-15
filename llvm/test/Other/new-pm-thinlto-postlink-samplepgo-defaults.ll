@@ -31,7 +31,6 @@
 ; CHECK-EP-PIPELINE-START: Running pass: NoOpModulePass
 ; CHECK-O: Running pass: SampleProfileLoaderPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
-; CHECK-O: Running pass: AggressiveSpeculationPass
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running analysis: ProfileSummaryAnalysis
@@ -39,6 +38,9 @@
 ; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass
 ; CHECK-O-NEXT: Running pass: PGOIndirectCallPromotion
 ; CHECK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass
+; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
