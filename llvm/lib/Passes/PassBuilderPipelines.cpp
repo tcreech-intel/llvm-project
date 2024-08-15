@@ -1101,10 +1101,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
         std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
   }
 
-  // This may be able to merge call sites, so run before any inlining which
-  // may happen in SampleProfileLoader.
-  MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));
-
   if (LoadSampleProfile) {
     // Annotate sample profile right after early FPM to ensure freshness of
     // the debug info.
@@ -1126,6 +1122,16 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       MPM.addPass(
           PGOIndirectCallPromotion(true /* IsInLTO */, true /* SamplePGO */));
   }
+
+  // This uses unpredictable metadata potentially added by
+  // UnpredictableProfileLoaderPass above, potentially in contexts inlined by
+  // SampleProfileLoaderPass. However, said inlining may also inhibit
+  // AggressiveSpeculation by making it harder to understand that inlined calls
+  // are equivalent.
+  // This should be an uncommon issue, if necessary it can be fixed by also
+  // running UnpredictableProfileLoaderPass and AggressiveInstCombinePass
+  // *before* SampleProfileLoaderPass.
+  MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));
 
   // Try to perform OpenMP specific optimizations on the module. This is a
   // (quick!) no-op if there are no OpenMP runtime calls present in the module.
