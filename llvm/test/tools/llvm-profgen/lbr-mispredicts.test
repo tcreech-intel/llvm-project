@@ -1,0 +1,61 @@
+// RUN: llvm-profgen --format=text --perfscript=%S/Inputs/lbr-mispredicts.perfscript --binary=%S/Inputs/lbr-mispredicts.perfbin --output=%t --skip-symbolization --lbr-mispredicts
+// RUN: FileCheck %s --input-file %t --check-prefix=CHECK-RAW-PROFILE
+// RUN: llvm-profgen --format=text --perfscript=%S/Inputs/lbr-mispredicts.perfscript --binary=%S/Inputs/lbr-mispredicts.perfbin --output=%t --lbr-mispredicts
+// RUN: FileCheck %s --input-file %t --check-prefix=CHECK
+
+// In this test we collect mispredicts using the information in LBR records
+// attached to retired branch samples. This is an alternative to using a
+// separate br_misp_retired event.
+
+// The source example below is based on perfKernelCpp/cmov_3, except a
+// misleading builtin is used to persuade the compiler not to use cmov, which
+// induces branch mispredicts.
+
+// CHECK: sel_arr:156:0
+// CHECK:  3.1: 0
+// CHECK:  3.2: 0
+// CHECK:  4: 78
+// CHECK:  5: 0
+
+// CHECK-RAW-PROFILE:      1
+// CHECK-RAW-PROFILE-NEXT: 23a-23a:78
+// CHECK-RAW-PROFILE-NEXT: 0
+
+// original code:
+// clang -O2 -gline-tables-only -fdebug-info-for-profiling
+#include <stdlib.h>
+
+#define N 20000
+#define ITERS 10000
+
+static int *m_s1, *m_s2, *m_s3, *m_dst;
+
+void init(void) {
+    m_s1 = malloc(sizeof(int)*N);
+    m_s2 = malloc(sizeof(int)*N);
+    m_s3 = malloc(sizeof(int)*N);
+    m_dst = malloc(sizeof(int)*N);
+    srand(42);
+
+    for (int i = 0; i < N; i++) {
+        m_s1[i] = rand() % N;
+        m_s2[i] = 0;
+        m_s3[i] = 1;
+    }
+}
+
+void __attribute__((noinline)) sel_arr(int *dst, int *s1, int *s2, int *s3) {
+#pragma nounroll
+#pragma clang loop vectorize(disable) interleave(disable)
+    for (int i = 0; i < N; i++) {
+        int *p = __builtin_expect((s1[i] < 10035), 0) ? &s2[i] : &s3[i];
+        dst[i] = *p;
+    }
+}
+
+int main(void) {
+  init();
+  for(int i=0; i<ITERS; ++i)
+    sel_arr(m_dst, m_s1, m_s2, m_s3);
+  return 0;
+}

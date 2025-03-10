@@ -83,14 +83,29 @@ struct PerfInputFile {
 
 // The parsed LBR sample entry.
 struct LBREntry {
+  enum PredictionResult {
+    UnknownResult = 0, // Unknown branch prediction result.
+    Mispredicted = 1,  // The branch was mispredicted.
+    Predicted = 2,     // The branch was correctly predicted.
+  };
+
   uint64_t Source = 0;
   uint64_t Target = 0;
-  LBREntry(uint64_t S, uint64_t T) : Source(S), Target(T) {}
+  PredictionResult TargetPredictionResult = UnknownResult;
+  LBREntry(uint64_t S, uint64_t T, PredictionResult TPR = UnknownResult)
+      : Source(S), Target(T), TargetPredictionResult(TPR) {}
+
+  bool targetWasMispredicted() const {
+    return TargetPredictionResult == Mispredicted;
+  }
 
 #ifndef NDEBUG
   void print() const {
     dbgs() << "from " << format("%#010x", Source) << " to "
            << format("%#010x", Target);
+    if (TargetPredictionResult != UnknownResult) {
+      dbgs() << (targetWasMispredicted() ? "(MISP)" : "(PRED)");
+    }
   }
 #endif
 };
@@ -167,6 +182,7 @@ struct PerfSample {
     for (const auto &Entry : LBRStack) {
       Hash = HashCombine(Hash, Entry.Source);
       Hash = HashCombine(Hash, Entry.Target);
+      Hash = HashCombine(Hash, Entry.TargetPredictionResult);
     }
     return Hash;
   }
@@ -184,7 +200,9 @@ struct PerfSample {
 
     for (size_t I = 0; I < OtherLBRStack.size(); I++) {
       if (LBRStack[I].Source != OtherLBRStack[I].Source ||
-          LBRStack[I].Target != OtherLBRStack[I].Target)
+          LBRStack[I].Target != OtherLBRStack[I].Target ||
+          LBRStack[I].TargetPredictionResult !=
+              OtherLBRStack[I].TargetPredictionResult)
         return false;
     }
     return true;
@@ -658,6 +676,8 @@ protected:
   // repeated.
   virtual void parseSample(TraceStream &TraceIt, uint64_t Count){};
   void computeCounterFromLBR(const PerfSample *Sample, uint64_t Repeat);
+  void computeCounterFromLBRMispredicts(const PerfSample *Sample,
+                                        uint64_t Repeat);
   // Post process the profile after trace aggregation, we will do simple range
   // overlap computation for AutoFDO, or unwind for CSSPGO(hybrid sample).
   virtual void generateUnsymbolizedProfile();

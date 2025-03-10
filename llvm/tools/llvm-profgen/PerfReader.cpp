@@ -47,6 +47,10 @@ static cl::opt<int> CSProfMaxUnsymbolizedCtxDepth(
     cl::desc("Keep the last K contexts while merging unsymbolized profile. -1 "
              "means no depth limit."));
 
+static cl::opt<bool>
+    LBRMispredictProfile("lbr-mispredicts",
+                         cl::desc("Generate a profile of branch mispredicts"));
+
 extern cl::opt<std::string> PerfTraceFilename;
 extern cl::opt<bool> ShowDisassemblyOnly;
 extern cl::opt<bool> ShowSourceLocations;
@@ -622,6 +626,17 @@ bool PerfScriptReader::extractLBRStack(TraceStream &TraceIt,
       break;
     }
 
+    LBREntry::PredictionResult PredResult =
+        LBREntry::PredictionResult::UnknownResult;
+    // Extract the target branch prediction result. As an optimization, we
+    // gather this only when building a mispredict profile.
+    if (LBRMispredictProfile && Addresses.size() >= 3) {
+      if (Addresses[2] == "M")
+        PredResult = LBREntry::PredictionResult::Mispredicted;
+      else if (Addresses[2] == "P")
+        PredResult = LBREntry::PredictionResult::Predicted;
+    }
+
     // Canonicalize to use preferred load address as base address.
     Src = Binary->canonicalizeVirtualAddress(Src);
     Dst = Binary->canonicalizeVirtualAddress(Dst);
@@ -635,7 +650,7 @@ bool PerfScriptReader::extractLBRStack(TraceStream &TraceIt,
     if (!SrcIsInternal && !DstIsInternal)
       continue;
 
-    LBRStack.emplace_back(LBREntry(Src, Dst));
+    LBRStack.emplace_back(LBREntry(Src, Dst, PredResult));
   }
   TraceIt.advance();
   return !LBRStack.empty();
@@ -941,6 +956,26 @@ void PerfScriptReader::computeCounterFromLBR(const PerfSample *Sample,
   }
 }
 
+void PerfScriptReader::computeCounterFromLBRMispredicts(
+    const PerfSample *Sample, uint64_t Repeat) {
+  SampleCounter &Counter = SampleCounters.begin()->second;
+  for (const LBREntry &LBR : Sample->LBRStack) {
+    if (!LBR.targetWasMispredicted())
+      continue;
+
+    // The profile is capturing mispredicted branches, so we want to count when
+    // the source is internal.
+    uint64_t SourceAddress = LBR.Source;
+    if (!Binary->addressIsCode(SourceAddress))
+      continue;
+
+    // Note: LBRs are only inserted on taken branches, so we double the sample
+    // count (by doubling Repeat) in order to crudely account for non-taken
+    // branch mispredicts.
+    Counter.recordRangeCount(SourceAddress, SourceAddress, Repeat + Repeat);
+  }
+}
+
 void LBRPerfReader::parseSample(TraceStream &TraceIt, uint64_t Count) {
   std::shared_ptr<PerfSample> Sample = std::make_shared<PerfSample>();
   // Parsing LBR stack and populate into PerfSample.LBRStack
@@ -961,7 +996,10 @@ void PerfScriptReader::generateUnsymbolizedProfile() {
   SampleCounters.emplace(Hashable<ContextKey>(Key), SampleCounter());
   for (const auto &Item : AggregatedSamples) {
     const PerfSample *Sample = Item.first.getPtr();
-    computeCounterFromLBR(Sample, Item.second);
+    if (LBRMispredictProfile)
+      computeCounterFromLBRMispredicts(Sample, Item.second);
+    else
+      computeCounterFromLBR(Sample, Item.second);
   }
 }
 
